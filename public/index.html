@@ -130,6 +130,18 @@
       async function init() {
         const cfg = await fetch("/config.json").then((r) => r.json());
 
+        // Without appId/configId the Embedded Signup popup cannot open, which
+        // would leave the button silently doing nothing. Surface it instead.
+        if (!cfg.appId || !cfg.configId) {
+          btn.textContent = "App não configurado";
+          btn.disabled = true;
+          log(
+            "Configuração do Meta ausente (appId/configId). " +
+              "Preencha em /admin.html antes de conectar.",
+          );
+          return;
+        }
+
         window.fbAsyncInit = function () {
           FB.init({
             appId: cfg.appId,
