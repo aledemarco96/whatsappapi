@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { env } from "./config/env.js";
 import { onboardingRouter } from "./onboarding/routes.js";
+import { getMetaConfig } from "./settings/service.js";
+import { settingsRouter } from "./settings/routes.js";
 import { webhookRouter } from "./webhooks/routes.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -25,16 +27,15 @@ export function createServer() {
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   // Public, client-side-safe config for the Embedded Signup page.
-  app.get("/config.json", (_req, res) => {
-    res.json({
-      appId: env.META_APP_ID,
-      configId: env.META_CONFIG_ID,
-      graphVersion: env.GRAPH_API_VERSION,
-    });
+  // appId/configId are resolved from settings (DB) or env; never the app secret.
+  app.get("/config.json", async (_req, res) => {
+    const { appId, configId } = await getMetaConfig();
+    res.json({ appId, configId, graphVersion: env.GRAPH_API_VERSION });
   });
 
   app.use("/webhooks", webhookRouter);
   app.use("/onboarding", onboardingRouter);
+  app.use("/admin", settingsRouter);
 
   // Serve the Embedded Signup frontend (public/index.html) as the app root.
   app.use(express.static(publicDir));

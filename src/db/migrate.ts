@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 CREATE UNIQUE INDEX IF NOT EXISTS tenants_phone_number_id_idx
   ON tenants (phone_number_id);
+
+-- Provider-level configuration (the Tech Provider's own Meta app credentials),
+-- editable at runtime via the /admin UI. Secrets are stored encrypted.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 export async function migrate(): Promise<void> {
