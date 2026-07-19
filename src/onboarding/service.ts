@@ -1,6 +1,6 @@
 import { encryptToken } from "../config/crypto.js";
-import { env } from "../config/env.js";
 import { graphRequest } from "../graph/client.js";
+import { getMetaConfig } from "../settings/service.js";
 import { tenantStore } from "../tenants/store.js";
 import type { TokenExchangeResult } from "../types/whatsapp.js";
 
@@ -29,13 +29,17 @@ interface TokenResponse {
 }
 
 async function exchangeCodeForToken(code: string): Promise<TokenExchangeResult> {
+  const { appId, appSecret } = await getMetaConfig();
+  if (!appId || !appSecret) {
+    throw new Error("Meta app credentials are not configured (set them in /admin or via env)");
+  }
   const res = await graphRequest<TokenResponse>("oauth/access_token", {
     method: "GET",
     // App-level call: authenticated via query params, not a bearer token.
-    accessToken: `${env.META_APP_ID}|${env.META_APP_SECRET}`,
+    accessToken: `${appId}|${appSecret}`,
     query: {
-      client_id: env.META_APP_ID,
-      client_secret: env.META_APP_SECRET,
+      client_id: appId,
+      client_secret: appSecret,
       code,
     },
   });

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configurações — WhatsApp API</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f5f7; color: #111; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #16181d; color: #f4f5f7; }
+        .card { background: #1f2229 !important; box-shadow: none !important; }
+        input { background: #14161a !important; color: #f4f5f7 !important; border-color: #333 !important; }
+      }
+      .card { width: min(460px, 92vw); background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 10px 40px rgba(0,0,0,.08); }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 20px; opacity: .7; font-size: 13px; }
+      label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+      input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d5d7db; border-radius: 8px; font-size: 14px; }
+      .hint { font-size: 12px; opacity: .6; margin-top: 4px; }
+      button { margin-top: 20px; width: 100%; appearance: none; border: none; border-radius: 10px; background: #25d366; color: #062e16; font-size: 15px; font-weight: 600; padding: 12px; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      .status { margin-top: 16px; font-size: 13px; padding: 10px 12px; border-radius: 8px; display: none; }
+      .status.ok { display: block; background: rgba(37,211,102,.15); }
+      .status.err { display: block; background: rgba(255,80,80,.15); }
+      .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(127,127,127,.2); margin-left: 6px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Configurações do App Meta</h1>
+      <p class="sub">Credenciais do seu app Meta (Tech Provider). O App Secret é guardado criptografado e nunca é exibido.</p>
+
+      <section id="gate">
+        <label for="admin-token">Token de admin</label>
+        <input id="admin-token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" />
+        <div class="hint">Definido na env var ADMIN_TOKEN do serviço.</div>
+        <button id="unlock">Entrar</button>
+      </section>
+
+      <section id="panel" class="hidden">
+        <label for="appId">META_APP_ID <span id="src-appId" class="badge"></span></label>
+        <input id="appId" type="text" placeholder="123456789012345" />
+
+        <label for="configId">META_CONFIG_ID <span id="src-configId" class="badge"></span></label>
+        <input id="configId" type="text" placeholder="ID da configuração do Embedded Signup" />
+
+        <label for="appSecret">META_APP_SECRET <span id="src-appSecret" class="badge"></span></label>
+        <input id="appSecret" type="password" placeholder="•••• deixe em branco para manter" autocomplete="off" />
+        <div class="hint">Só preencha para trocar. Em branco = mantém o atual.</div>
+
+        <button id="save">Salvar</button>
+      </section>
+
+      <div id="status" class="status"></div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const statusEl = $("status");
+      const show = (msg, ok) => {
+        statusEl.textContent = msg;
+        statusEl.className = "status " + (ok ? "ok" : "err");
+      };
+      let token = sessionStorage.getItem("adminToken") || "";
+
+      const authHeaders = () => ({ Authorization: "Bearer " + token, "Content-Type": "application/json" });
+
+      function renderStatus(s) {
+        $("appId").value = s.appId || "";
+        $("configId").value = s.configId || "";
+        $("src-appId").textContent = s.source.appId;
+        $("src-configId").textContent = s.source.configId;
+        $("src-appSecret").textContent = s.appSecretSet ? s.source.appSecret : "unset";
+        $("gate").classList.add("hidden");
+        $("panel").classList.remove("hidden");
+      }
+
+      async function load() {
+        const res = await fetch("/admin/settings", { headers: authHeaders() });
+        if (res.status === 401) { show("Token inválido.", false); return false; }
+        if (res.status === 503) { show("ADMIN_TOKEN não configurado no servidor.", false); return false; }
+        if (!res.ok) { show("Erro ao carregar (" + res.status + ").", false); return false; }
+        renderStatus(await res.json());
+        sessionStorage.setItem("adminToken", token);
+        return true;
+      }
+
+      $("unlock").addEventListener("click", async () => {
+        token = $("admin-token").value.trim();
+        if (!token) return;
+        await load();
+      });
+
+      $("save").addEventListener("click", async () => {
+        const body = { appId: $("appId").value.trim(), configId: $("configId").value.trim() };
+        const secret = $("appSecret").value;
+        if (secret) body.appSecret = secret;
+        $("save").disabled = true;
+        try {
+          const res = await fetch("/admin/settings", { method: "PUT", headers: authHeaders(), body: JSON.stringify(body) });
+          if (!res.ok) { show("Falha ao salvar (" + res.status + ").", false); return; }
+          renderStatus(await res.json());
+          $("appSecret").value = "";
+          show("Salvo com sucesso.", true);
+        } finally {
+          $("save").disabled = false;
+        }
+      });
+
+      // Auto-unlock if we already have a token from this session.
+      if (token) load();
+    </script>
+  </body>
+</html>

@@ -28,8 +28,9 @@ webhookRouter.get("/", (req, res) => {
  * POST /webhooks — inbound messages and statuses.
  * We verify the signature, ack immediately, then process asynchronously.
  */
-webhookRouter.post("/", (req: RawRequest, res) => {
-  if (!req.rawBody || !isValidSignature(req.rawBody, req.get("x-hub-signature-256"))) {
+webhookRouter.post("/", async (req: RawRequest, res) => {
+  const valid = req.rawBody && (await isValidSignature(req.rawBody, req.get("x-hub-signature-256")));
+  if (!valid) {
     return res.sendStatus(401);
   }
 

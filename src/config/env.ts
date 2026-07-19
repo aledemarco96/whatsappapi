@@ -8,10 +8,17 @@ import { z } from "zod";
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
 
-  META_APP_ID: z.string().min(1, "META_APP_ID is required"),
-  META_APP_SECRET: z.string().min(1, "META_APP_SECRET is required"),
+  // Meta app credentials are optional in env: they can also be configured at
+  // runtime via the /admin settings UI (stored in Postgres). DB value wins,
+  // env is the fallback. See settings/service.ts.
+  META_APP_ID: z.string().min(1).optional(),
+  META_APP_SECRET: z.string().min(1).optional(),
   GRAPH_API_VERSION: z.string().regex(/^v\d+\.\d+$/, "expected format like v21.0").default("v21.0"),
-  META_CONFIG_ID: z.string().min(1, "META_CONFIG_ID is required"),
+  META_CONFIG_ID: z.string().min(1).optional(),
+
+  // Bearer token that gates the /admin settings API. Must be set to use the
+  // admin UI; when unset, the settings API fails closed (503).
+  ADMIN_TOKEN: z.string().min(16, "ADMIN_TOKEN should be at least 16 chars").optional(),
 
   WEBHOOK_VERIFY_TOKEN: z.string().min(1, "WEBHOOK_VERIFY_TOKEN is required"),
 
